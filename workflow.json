@@ -1,0 +1,1093 @@
+{
+  "updatedAt": "2026-02-01T07:41:21.370Z",
+  "createdAt": "2026-01-31T14:54:32.385Z",
+  "id": "gDAowZzOLuXbLhntF3Rwr",
+  "name": "Auto Job Apply with Manual Approval",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "name": "Every 6 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        336,
+        128
+      ],
+      "id": "9f2141f2-5d10-4ea3-8b37-e3c3bf565b5e"
+    },
+    {
+      "parameters": {
+        "url": "https://job-api-production-c6f4.up.railway.app/api/jobs/latest",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "keyword",
+              "value": "Frontend Intern"
+            },
+            {
+              "name": "location",
+              "value": "India"
+            },
+            {
+              "name": "remote",
+              "value": "true"
+            },
+            {
+              "name": "jobType",
+              "value": "internship"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Fetch Jobs from API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        560,
+        128
+      ],
+      "id": "c76d3566-0104-40fb-8a7a-a21772d746f4"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "messages": {
+          "values": [
+            {}
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "name": "Analyze Jobs with AI",
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        784,
+        128
+      ],
+      "id": "01795156-2826-4b88-a2d6-4fd3673f38f2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "zMoJvlBmJE5OcUKW",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst text = response.candidates[0].content.parts[0].text;\nconst cleaned = text.trim().replace(/^```json\\s*/, '').replace(/^```\\s*/, '').replace(/\\s*```$/, '');\nconst parsed = JSON.parse(cleaned);\nreturn [{ json: { parsed } }];"
+      },
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        128
+      ],
+      "id": "439be326-505d-4652-b70b-d1980872ee6c"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "parsed.jobs",
+        "options": {}
+      },
+      "name": "Split Out Jobs",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        128
+      ],
+      "id": "207f7d4f-b0eb-48ad-a9b0-e0e7a9b7704a"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.importanceScore }}",
+              "operation": "largerEqual",
+              "value2": 7
+            }
+          ],
+          "string": [
+            {
+              "value1": "={{ $json.redFlags }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "name": "Filter Quality Jobs",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 1,
+      "position": [
+        1584,
+        128
+      ],
+      "id": "adf1673e-5f36-4dec-aac7-88efed001785"
+    },
+    {
+      "parameters": {
+        "operation": "limit",
+        "maxItems": 10
+      },
+      "name": "Limit to 10",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 1,
+      "position": [
+        1808,
+        128
+      ],
+      "id": "c98dcd63-96e7-44c2-b485-d01ff5445b02"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1tfzDWoDkchSmJ5-gm3Rdr98nyg2hyQSTMPUJW96_0VQ/edit",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $json.fetchedAt }}",
+            "Job Id": "={{ $json.id }}",
+            "Title": "={{ $json.title }}",
+            "Company": "={{ $json.company }}",
+            "Location": "={{ $json.location }}",
+            "Salary": "={{ $json.salary }}",
+            "Importance Score": "={{ $json.importanceScore }}",
+            "Match Score": "={{ $json.matchScore }}",
+            "Apply Url": "={{ $json.applyUrl }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Job Id",
+              "displayName": "Job Id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Title",
+              "displayName": "Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Location",
+              "displayName": "Location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Salary",
+              "displayName": "Salary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Importance Score",
+              "displayName": "Importance Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Match Score",
+              "displayName": "Match Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Apply Url",
+              "displayName": "Apply Url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Approved",
+              "displayName": "Approved",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Applied At",
+              "displayName": "Applied At",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Application Method",
+              "displayName": "Application Method",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "name": "Save to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        2032,
+        128
+      ],
+      "id": "f08e8429-ca59-4af2-9a01-28743cbe4498",
+      "credentials": {
+        "googleApi": {
+          "id": "gLHaONUwOzXOvFIe",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "5187662803",
+        "text": "={{ $json.Title }} Saved to google sheets",
+        "additionalFields": {}
+      },
+      "name": "Send Telegram Notification",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        2256,
+        128
+      ],
+      "id": "6b176ac1-f051-45d7-b3f4-430e208449ea",
+      "webhookId": "190c847c-d36e-4d49-9c01-8c9b27fef65a",
+      "credentials": {
+        "telegramApi": {
+          "id": "ZBBbwYZWq4gSELK2",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "name": "Check Approvals Hourly",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        336,
+        448
+      ],
+      "id": "fe863a8a-f907-4abf-991e-61d2384734d4"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1tfzDWoDkchSmJ5-gm3Rdr98nyg2hyQSTMPUJW96_0VQ/edit",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "name": "Read Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        560,
+        448
+      ],
+      "id": "82607516-e788-4dbd-a4e4-26a6645410cc",
+      "credentials": {
+        "googleApi": {
+          "id": "gLHaONUwOzXOvFIe",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.approved }}",
+              "operation": "equals",
+              "value2": "YES"
+            },
+            {
+              "value1": "={{ $json.status }}",
+              "operation": "notEquals",
+              "value2": "applied"
+            }
+          ]
+        }
+      },
+      "name": "Filter Approved Jobs",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 1,
+      "position": [
+        784,
+        448
+      ],
+      "id": "e08dd38e-699e-4a52-8ead-48322c4fbfea"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.applyUrl }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "name": "Fetch Application Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1008,
+        448
+      ],
+      "id": "46cce34a-4324-4b60-b613-6e5496094641"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Detect application method from page content\nconst html = $input.first().json.body || '';\nconst url = $input.first().json.applyUrl;\n\nlet applicationType = 'unknown';\nlet formAction = '';\nlet emailAddress = '';\n\n// Check for common job portals\nif (url.includes('linkedin.com')) {\n  applicationType = 'linkedin';\n} else if (url.includes('naukri.com')) {\n  applicationType = 'naukri';\n} else if (url.includes('indeed.com')) {\n  applicationType = 'indeed';\n} else if (url.includes('greenhouse.io')) {\n  applicationType = 'greenhouse';\n} else if (url.includes('lever.co')) {\n  applicationType = 'lever';\n} else if (html.match(/mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})/)) {\n  applicationType = 'email';\n  emailAddress = html.match(/mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})/)[1];\n} else if (html.includes('<form')) {\n  applicationType = 'direct_form';\n  // Extract form action\n  const formMatch = html.match(/<form[^>]*action=[\"']([^\"']+)[\"']/i);\n  if (formMatch) formAction = formMatch[1];\n}\n\nreturn [{\n  json: {\n    ...$input.first().json,\n    applicationType,\n    formAction,\n    emailAddress,\n    canAutoApply: ['email', 'direct_form', 'greenhouse', 'lever'].includes(applicationType)\n  }\n}];"
+      },
+      "name": "Detect Application Type",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1232,
+        448
+      ],
+      "id": "cca61f8d-1f5e-4263-91c7-fbd769aaec75"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.applicationType }}",
+              "operation": "equals",
+              "value2": "email"
+            }
+          ]
+        }
+      },
+      "name": "If Email Application",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1456,
+        352
+      ],
+      "id": "d50f3503-2848-4d18-81c0-2a7b547fd5ad"
+    },
+    {
+      "parameters": {
+        "fromEmail": "perceptionweblabs@gmail.com",
+        "toEmail": "={{ $json.emailAddress }}",
+        "subject": "=Application for {{ $json.title }} position",
+        "options": {}
+      },
+      "name": "Send Email Application",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        352
+      ],
+      "id": "975ea9f2-5dc3-435a-92ba-71d72ecda0e3",
+      "webhookId": "806eeb7a-a2b5-42c3-a9d6-5e93c3e93681",
+      "credentials": {
+        "smtp": {
+          "id": "hZoCjXm3vnFhw1OT",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.applicationType }}",
+              "operation": "equals",
+              "value2": "direct_form"
+            }
+          ]
+        }
+      },
+      "name": "If Direct Form",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1456,
+        544
+      ],
+      "id": "4973f154-95e5-4aa6-9ec0-d573417f5beb"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.formAction }}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "name",
+              "value": "Your Full Name"
+            },
+            {
+              "name": "email",
+              "value": "your-email@gmail.com"
+            },
+            {
+              "name": "phone",
+              "value": "+91-XXXXXXXXXX"
+            },
+            {
+              "name": "resume",
+              "value": "={{ $binary.resume }}"
+            },
+            {
+              "name": "cover_letter",
+              "value": "=I am excited to apply for the {{ $json.title }} position at {{ $json.company }}. With expertise in full-stack development, I am confident in my ability to contribute effectively to your team."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Submit Direct Form",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1680,
+        544
+      ],
+      "id": "cf03a771-3052-456f-bb46-fa1ac3a6aa9e"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1tfzDWoDkchSmJ5-gm3Rdr98nyg2hyQSTMPUJW96_0VQ/edit",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": 0
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Job Id",
+              "displayName": "Job Id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Title",
+              "displayName": "Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Location",
+              "displayName": "Location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Salary",
+              "displayName": "Salary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Importance Score",
+              "displayName": "Importance Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Match Score",
+              "displayName": "Match Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Apply Url",
+              "displayName": "Apply Url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Approved",
+              "displayName": "Approved",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Applied At",
+              "displayName": "Applied At",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Application Method",
+              "displayName": "Application Method",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "name": "Update Sheet Status",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        1904,
+        448
+      ],
+      "id": "0cf33c74-963a-4048-ac04-09660c214e25",
+      "credentials": {
+        "googleApi": {
+          "id": "gLHaONUwOzXOvFIe",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "resource": "base",
+        "options": {}
+      },
+      "name": "Log to Airtable",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        2128,
+        448
+      ],
+      "id": "de58ae7e-f131-4392-a427-7b907fb6d41b"
+    },
+    {
+      "parameters": {
+        "chatId": "5187662803",
+        "text": "Success",
+        "additionalFields": {}
+      },
+      "name": "Notify Success",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        2352,
+        448
+      ],
+      "id": "ea8eede3-128b-47f5-b811-aa8a6318ca67",
+      "webhookId": "25c0ef5b-8202-43a3-87ab-03472d1c0b6f",
+      "credentials": {
+        "telegramApi": {
+          "id": "ZBBbwYZWq4gSELK2",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 6 Hours": {
+      "main": [
+        [
+          {
+            "node": "Fetch Jobs from API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Jobs from API": {
+      "main": [
+        [
+          {
+            "node": "Analyze Jobs with AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Jobs with AI": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Split Out Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out Jobs": {
+      "main": [
+        [
+          {
+            "node": "Filter Quality Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Quality Jobs": {
+      "main": [
+        [
+          {
+            "node": "Limit to 10",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit to 10": {
+      "main": [
+        [
+          {
+            "node": "Save to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Approvals Hourly": {
+      "main": [
+        [
+          {
+            "node": "Read Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Filter Approved Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Approved Jobs": {
+      "main": [
+        [
+          {
+            "node": "Fetch Application Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Application Page": {
+      "main": [
+        [
+          {
+            "node": "Detect Application Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Application Type": {
+      "main": [
+        [
+          {
+            "node": "If Email Application",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Direct Form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Email Application": {
+      "main": [
+        [
+          {
+            "node": "Send Email Application",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Direct Form": {
+      "main": [
+        [
+          {
+            "node": "Submit Direct Form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email Application": {
+      "main": [
+        [
+          {
+            "node": "Update Sheet Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Submit Direct Form": {
+      "main": [
+        [
+          {
+            "node": "Update Sheet Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Sheet Status": {
+      "main": [
+        [
+          {
+            "node": "Log to Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Airtable": {
+      "main": [
+        [
+          {
+            "node": "Notify Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "27182a3e-4cfe-4eaa-acb8-7e9524e5ab97",
+  "activeVersionId": null,
+  "versionCounter": 88,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-01-31T14:54:32.388Z",
+      "createdAt": "2026-01-31T14:54:32.388Z",
+      "role": "workflow:owner",
+      "workflowId": "gDAowZzOLuXbLhntF3Rwr",
+      "projectId": "aNhYNYXhQwoXF58k",
+      "project": {
+        "updatedAt": "2026-01-30T17:39:00.934Z",
+        "createdAt": "2026-01-30T17:23:56.833Z",
+        "id": "aNhYNYXhQwoXF58k",
+        "name": "Shantanu Neve <shantanu.neve2000@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "930e6221-871d-4858-9ac7-f1f4ed6185db",
+        "projectRelations": [
+          {
+            "updatedAt": "2026-01-30T17:23:56.833Z",
+            "createdAt": "2026-01-30T17:23:56.833Z",
+            "userId": "930e6221-871d-4858-9ac7-f1f4ed6185db",
+            "projectId": "aNhYNYXhQwoXF58k",
+            "user": {
+              "updatedAt": "2026-02-01T03:27:14.000Z",
+              "createdAt": "2026-01-30T17:23:56.346Z",
+              "id": "930e6221-871d-4858-9ac7-f1f4ed6185db",
+              "email": "shantanu.neve2000@gmail.com",
+              "firstName": "Shantanu",
+              "lastName": "Neve",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2026-01-30T17:39:44.668Z",
+                "personalization_survey_n8n_version": "2.4.8",
+                "automationGoalDevops": [
+                  "data-syncing"
+                ],
+                "companySize": "personalUser",
+                "companyType": "education",
+                "role": "engineering",
+                "reportedSource": "friend"
+              },
+              "settings": {
+                "userActivated": false,
+                "easyAIWorkflowOnboarded": true
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-02-01",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "parentFolder": null,
+  "activeVersion": null,
+  "scopes": [
+    "workflow:create",
+    "workflow:delete",
+    "workflow:execute",
+    "workflow:execute-chat",
+    "workflow:list",
+    "workflow:move",
+    "workflow:publish",
+    "workflow:read",
+    "workflow:share",
+    "workflow:update"
+  ],
+  "checksum": "47a20a196e66efdfe68c273cf541c226c1f093a19c32c2f6f726918e83a1ab7d"
+}
